@@ -1,0 +1,12 @@
+build/
+*.xcuserstate
+xcuserdata/
+__pycache__/
+.DS_Store
+.env*
+*.mobileprovision
+*.p12
+*.p8
+*.log
+usage.json
+docs/ai_usage_widget/preview.png
