@@ -29,18 +29,35 @@ enum UsageStore {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         let snapshot = try readAndCache(url)
-        let bookmark = try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+        let bookmark = try url.bookmarkData(options: bookmarkOptions, includingResourceValuesForKeys: nil, relativeTo: nil)
         UserDefaults(suiteName: groupID)?.set(bookmark, forKey: bookmarkKey)
         return snapshot
     }
 
-    static func refresh() throws -> UsageSnapshot {
+    private static var bookmarkOptions: URL.BookmarkCreationOptions {
         #if os(macOS)
-        return cached()
+        return [.withSecurityScope]
         #else
+        return []
+        #endif
+    }
+
+    private static var resolutionOptions: URL.BookmarkResolutionOptions {
+        #if os(macOS)
+        return [.withSecurityScope, .withoutUI]
+        #else
+        return [.withoutUI]
+        #endif
+    }
+
+    static func clearSource() {
+        UserDefaults(suiteName: groupID)?.removeObject(forKey: bookmarkKey)
+    }
+
+    static func refresh() throws -> UsageSnapshot {
         guard let bookmark = UserDefaults(suiteName: groupID)?.data(forKey: bookmarkKey) else { return cached() }
         var stale = false
-        let url = try URL(resolvingBookmarkData: bookmark, options: [.withoutUI], relativeTo: nil, bookmarkDataIsStale: &stale)
+        let url = try URL(resolvingBookmarkData: bookmark, options: resolutionOptions, relativeTo: nil, bookmarkDataIsStale: &stale)
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
         if (try? url.resourceValues(forKeys: [.isUbiquitousItemKey]).isUbiquitousItem) == true {
@@ -48,11 +65,10 @@ enum UsageStore {
         }
         let snapshot = try readAndCache(url)
         if stale {
-            let renewed = try url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+            let renewed = try url.bookmarkData(options: bookmarkOptions, includingResourceValuesForKeys: nil, relativeTo: nil)
             UserDefaults(suiteName: groupID)?.set(renewed, forKey: bookmarkKey)
         }
         return snapshot
-        #endif
     }
 
     private static func readAndCache(_ url: URL) throws -> UsageSnapshot {

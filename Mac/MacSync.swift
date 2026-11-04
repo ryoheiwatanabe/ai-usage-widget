@@ -3,6 +3,7 @@ import AppKit
 import Foundation
 import SwiftUI
 import WidgetKit
+import UniformTypeIdentifiers
 
 enum MacSync {
     static let label = "com.ryo.AIUsageBoard.sync"
@@ -53,7 +54,7 @@ enum MacSync {
         process.arguments = [script.path, "--output", output.path]
         var environment = ProcessInfo.processInfo.environment
         environment["PATH"] = FileManager.default.homeDirectoryForCurrentUser.path
-            + "/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+            + "/.npm-global/bin:" + FileManager.default.homeDirectoryForCurrentUser.path + "/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
         process.environment = environment
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -115,6 +116,7 @@ struct MacBoardScreen: View {
     @State private var updating = false
     @State private var automatic = MacSync.automaticSyncEnabled()
     @State private var hasDestination = MacSync.hasDestination
+    @State private var receiving = UsageStore.hasSource
     @State private var message: String?
 
     var body: some View {
@@ -132,8 +134,17 @@ struct MacBoardScreen: View {
             UsageCard(snapshot: snapshot, syncFailed: message != nil).frame(height: 170)
                 .shadow(color: .black.opacity(0.3), radius: 15, y: 8)
 
-            HStack(spacing: 10) {
-                if !hasDestination {
+            VStack(alignment: .leading, spacing: 10) {
+                Button(receiving ? "受信ファイルを変更" : "iCloudから受け取る") {
+                    chooseSource()
+                }.buttonStyle(.bordered).disabled(updating || automatic)
+                if receiving {
+                    Button("このMacで取得する") {
+                        UsageStore.clearSource()
+                        receiving = false
+                    }.buttonStyle(.bordered).disabled(updating)
+                }
+                if !receiving && !hasDestination {
                     Button("iCloudの同期先を選ぶ") {
                         do {
                             if try MacSync.chooseDestination() { hasDestination = true; refresh() }
@@ -143,9 +154,10 @@ struct MacBoardScreen: View {
                 Button { refresh() } label: {
                     HStack {
                         if updating { ProgressView().controlSize(.small) }
-                        Label("今すぐ同期", systemImage: "arrow.clockwise")
+                        Label(receiving ? "今すぐ確認" : "今すぐ同期", systemImage: "arrow.clockwise")
                     }.frame(minWidth: 110)
-                }.buttonStyle(.borderedProminent).tint(BoardStyle.blue).disabled(updating || !hasDestination)
+                }.buttonStyle(.borderedProminent).tint(BoardStyle.blue).disabled(updating || (!receiving && !hasDestination))
+                if !receiving {
                 Button(automatic ? "自動同期を停止" : "自動同期を開始") {
                     do {
                         try MacSync.setAutomaticSync(!automatic)
@@ -153,11 +165,12 @@ struct MacBoardScreen: View {
                         message = nil
                     } catch { message = "自動同期を変更できませんでした。" }
                 }.buttonStyle(.bordered).disabled(!hasDestination)
+                }
                 Spacer()
             }
 
             VStack(alignment: .leading, spacing: 11) {
-                Label(automatic ? "15分ごとに同期中" : "自動同期は停止中", systemImage: automatic ? "checkmark.circle" : "clock")
+                Label(receiving ? "iCloudの共有データを表示中" : (automatic ? "15分ごとに同期中" : "自動同期は停止中"), systemImage: automatic ? "checkmark.circle" : "clock")
                     .foregroundStyle(automatic ? BoardStyle.blue : BoardStyle.muted)
                 Text("デスクトップを右クリック → ウィジェットを編集 →「AI Usage」を追加。")
                     .fixedSize(horizontal: false, vertical: true)
@@ -178,7 +191,23 @@ struct MacBoardScreen: View {
         }
         .padding(26).frame(width: 430)
         .background(Color(red: 0.055, green: 0.065, blue: 0.065))
-        .task { if hasDestination { refresh() } }
+        .task { if receiving || hasDestination { refresh() } }
+    }
+
+    private func chooseSource() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.json]
+        panel.directoryURL = MacSync.exportURL.deletingLastPathComponent()
+        panel.message = "取得するMacが保存したJSONファイルを選んでください。"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            snapshot = try UsageStore.select(url)
+            receiving = true
+            message = nil
+            WidgetCenter.shared.reloadAllTimelines()
+        } catch { message = "受信ファイルを設定できませんでした。" }
     }
 
     private func refresh() {
@@ -186,7 +215,10 @@ struct MacBoardScreen: View {
         updating = true
         Task {
             do {
-                snapshot = try await Task.detached { try MacSync.synchronize() }.value
+                let receive = receiving
+                snapshot = try await Task.detached {
+                    try receive ? UsageStore.refresh() : MacSync.synchronize()
+                }.value
                 message = nil
                 WidgetCenter.shared.reloadAllTimelines()
             } catch { message = "同期できませんでした。iCloud DriveとCodexのログインを確認してください。" }

@@ -1,6 +1,6 @@
 # AI Usage
 
-CodexとClaudeの5時間枠・週間枠の残量と、Codexのクレジットをまとめて表示する、Mac・iPhone用のWidgetKitアプリです。
+CodexとClaudeの5時間枠・週間枠の残量と、Codexのクレジットをまとめて表示する、Mac・iPhone用のWidgetKitアプリと、iPhoneのScriptable版・Fire HDのブラウザ表示です。
 
 Macが取得した残量データをiCloud Driveへ保存し、iPhoneと共有します。Codexの画面や、このアプリのウィンドウを開き続ける必要はありません。取得するMacはログイン中で、スリープしておらず、ネットにつながっている必要があります。
 
@@ -48,20 +48,41 @@ python3 tools/sync_usage.py
 
 このコマンドは `iCloud Drive/AI Usage/usage.json` へ出力します。`--output` で別のファイルを指定できます。手動コマンドだけではMacウィジェットの端末内キャッシュは更新されません。
 
+## 別のMacが取得したデータをMacで表示する
+
+取得していたMacでは先に「自動同期を停止」を押してください。アプリの「iCloudから受け取る」で、取得するMacが保存したJSONファイルを選びます。ウィジェットも同じファイルを読み、受信に失敗した場合は前回値を表示します。取得側へ戻す場合は「このMacで取得する」を選びます。
+
+## M1で確認用の定期取得を始める
+
+旧Macの同期を継続したまま、別名ファイルへ保存します。
+
+```sh
+python3 tools/install_collector.py --output \
+  "$HOME/Library/Mobile Documents/com~apple~CloudDocs/AI Usage/usage-m1-check.json"
+```
+
+このinstallerは900秒間隔のLaunchAgentを登録し、実行用スクリプトを `~/Library/Application Support/AIUsage` へコピーします。既存ジョブや共有用ファイルへの出力指定は拒否します。コードを更新した場合は、実行用のコピーも更新してください。macOSがiCloudへの書込みを拒否した場合は、Pythonのプライバシー権限を本人が確認します。
+
 ## iPhoneで表示する
 
-アプリの「iCloudのファイルを選ぶ」から、Macが出力した `AI Usage/usage.json` を選択します。ホーム画面を長押しし、「編集 → ウィジェットを追加 → AI Usage」から中サイズを追加してください。
+WidgetKit版はアプリの「iCloudのファイルを選ぶ」から、Macが出力した `AI Usage/usage.json` を選択します。ホーム画面を長押しし、「編集 → ウィジェットを追加 → AI Usage」から中サイズを追加してください。
 
 更新のタイミングはiOSとiCloudの状態に左右されます。ウィジェットには取得時刻を表示し、取得に失敗した場合は前回の結果を残します。リセット時刻を過ぎた枠は、残量を「—」、リセットまでの時間を「更新待ち」と表示します。
+
+Scriptable方式は [導入手順](docs/scriptable/README.md) を参照してください。
+
+## Fire HDで表示する
+
+M1と同じWi-Fiへ接続し、Silkで残量ページを開きます。[設定・確認手順](docs/fire_hd/README.md) を参照してください。実際の利用データはインターネットへ公開しません。
 
 ## 実装と確認の状況
 
 - Codexは公式CLIの `account/rateLimits/read` を使用し、実際の残量取得を確認済みです。取得される枠はアカウントによって異なります。提供されない枠は「—」と表示します。
-- Claude Codeのログイン確認と `/usage` の読取り処理は実装済みですが、ログイン後の実データ取得は未確認です。
+- M1でClaude Codeの正規ログインと `/usage` からの実値取得を確認しました。初回確認は専用の空ディレクトリで行い、ANSIの画面差分を復元して読み取ります。safe-modeを使い、ユーザーのhooks・MCP・ツールを無効にします。
 - Mac・iPhone実機用・iPhoneシミュレータのビルド、Macアプリの実値表示、自動同期の正常終了を確認しています。
 - Macデスクトップへのウィジェット配置と、iPhone実機でのiCloud同期は未確認です。
-- 取得するMacを常駐端末へ移す場合、普段使うMacのウィジェットもiCloudから受け取る処理へ変更する必要があります。現在のMacウィジェットは端末内の共有キャッシュを読みます。
-- Scriptable版は未実装です。iPhoneの専用アプリ方式とScriptable方式の選択は未確定です。
+- MacのiCloud受信処理を実装し、Swiftの型検査を確認しました。変更後のアプリのビルド・署名・普段使うMacへの導入は未確認です。
+- iPhoneはScriptable方式を選択済みです。コードを追加しましたが、iPhone実機の受信は未確認です。
 
 続きの開発・常駐Macへの移行は、[引き継ぎメモ](docs/migration_handoff/README.md)を参照してください。
 
@@ -72,7 +93,9 @@ cd tools
 python3 -m unittest -v test_sync_usage.py
 ```
 
-期間による枠の割当て、0クレジットの保持、取得失敗時の時刻保持、不正な割合の拒否を確認します。
+期間による枠の割当て、0クレジット、取得失敗時の時刻保持、Claude画面の差分更新とリセット日時、Fire HD配信の制限を確認します。全件実行は `python3 -m unittest discover -s tools -v` です。
+
+一部の枠やクレジットが取得できなくなった場合は、そのサービス全体を前回値と時刻のまま保持します。現行のJSONでは取得時刻がサービス単位のため、古い値に新しい時刻を付けないことを優先しています。
 
 ## ライセンス・参照先
 
