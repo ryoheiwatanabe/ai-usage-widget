@@ -7,13 +7,13 @@ Macが取得した残量データをiCloud Driveへ保存し、iPhoneと共有�
 ## 必要な環境
 
 - macOS 14以降、またはiOS 17以降。開発時はXcode 26.3を使用しています。
-- ビルドするMacにXcode、取得するMacにPython 3.9以降とCodex CLI。
+- WidgetKit版のビルドにはXcodeが必要です。M1の保存用アプリにはCommand Line ToolsのSwiftコンパイラ、Python 3.9以降、Codex CLIを使います。
 - 取得したいアカウントでCodex CLIへログイン済みであること。Claudeも表示する場合はClaude Codeへのログインが必要です。
 - iPhoneと共有する場合は、両端末で同じAppleアカウントのiCloud Driveを有効にしてください。
 
 APIキーの追加設定は不要です。認証情報は各CLIが管理するものを使い、端末間では残量・クレジット・取得時刻・取得状態だけを同期します。
 
-Macアプリからの同期は `/usr/bin/python3` を使います。この開発環境ではXcodeが提供するPythonです。別の場所にPythonだけを導入した端末では、後述の手動コマンドをそのPythonで実行するか、`Mac/MacSync.swift` のPythonパスを調整してください。
+WidgetKit版Macアプリからの同期は `/usr/bin/python3` を使います。Appleの開発ツールが提供するPythonです。別の場所にPythonだけを導入した端末では、後述の手動コマンドをそのPythonで実行するか、`Mac/MacSync.swift` のPythonパスを調整してください。
 
 ## ビルド
 
@@ -81,8 +81,8 @@ M1と同じWi-Fiへ接続し、Silkで残量ページを開きます。[設定�
 
 - Codexは公式CLIの `account/rateLimits/read` を使用し、実際の残量取得を確認済みです。取得される枠はアカウントによって異なります。提供されない枠は「—」と表示します。
 - M1でClaude Codeの正規ログインと `/usage` からの実値取得を確認しました。初回確認は専用の空ディレクトリで行い、ANSIの画面差分を復元して読み取ります。safe-modeを使い、ユーザーのhooks・MCP・ツールを無効にします。
-- 引き継ぎ時点でMac・iPhone実機用・シミュレータのビルドを確認済みです。今回のM1では保存用アプリのビルド、LaunchAgentからの実値取得・iCloud保存を確認しました。表示用Macアプリの変更後ビルドは未確認です。
-- Macデスクトップへのウィジェット配置と、iPhone実機でのiCloud同期は未確認です。
+- 引き継ぎ時点でMac・iPhone実機用・シミュレータのビルドを確認済みです。今回のM1では保存用アプリのビルド、LaunchAgentからの実値取得・iCloud保存、次の15分タイマーによる自動更新を確認しました。表示用Macアプリの変更後ビルドは未確認です。
+- Macデスクトップへのウィジェット配置と、iPhoneのWidgetKit専用アプリでのiCloud同期は未確認です。選択したScriptable版の確認結果は以下のとおりです。
 - MacのiCloud受信処理を実装し、Swiftの型検査を確認しました。変更後のアプリのビルド・署名・普段使うMacへの導入は未確認です。
 - iPhoneはScriptable方式を選択済みです。確認用JSONとJSのiCloud経由の到達、Scriptable内での実値・取得時刻表示は本人確認済みです。ホーム画面ウィジェットの実値・取得時刻表示も本人確認済みです。
 
