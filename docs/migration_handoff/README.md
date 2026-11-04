@@ -17,9 +17,9 @@
 | Macアプリ | 実値表示、iCloudへの保存、15分同期を確認済み |
 | Macウィジェット | WidgetKit拡張の登録を確認済み。デスクトップ配置は未確認 |
 | iPhone専用アプリ | 実機用ビルドとシミュレータ起動を確認済み。実機導入・iCloud同期は未確認 |
-| iPhoneの方式 | Scriptableを選択済み。確認用JSONとJSのiCloud到達は本人確認済み。Scriptable表示は未確認 |
-| Fire HD | Wi-Fi方式。M1の表示用LaunchAgentを登録し、FireからLAN経由のHTTP到達を確認。iCloud読取り権限とロック解除後の表示は確認中 |
-| M1の定期取得 | 確認用LaunchAgentを900秒で登録。iCloud書込みのmacOS権限は確認中 |
+| iPhoneの方式 | Scriptableを選択済み。確認用JSONとJSのiCloud到達、Scriptable内の実値・取得時刻表示は本人確認済み。ホーム画面ウィジェットも本人確認済み |
+| Fire HD | Wi-Fi方式。M1の表示用LaunchAgentを登録。FireからLAN経由のJSON受信成功、実画面の数値・取得時刻は本人確認済み |
+| M1の定期取得 | フォルダ選択で保存を許可する小さなMacアプリを追加。900秒のLaunchAgentから取得とiCloud保存の正常終了を確認 |
 
 このアカウントで確認したCodexの応答は、primaryの期間が10080分、secondaryがnullでした。primaryを5時間枠だと決めつけず、期間を使って週間枠へ割り当てる実装を維持してください。
 
@@ -57,10 +57,10 @@ ClaudeやiPhoneの実機確認が未完了の場合は、その範囲と、利�
 
 ## M1で追加した手順と未確認範囲
 
-- `tools/install_collector.py` は確認用 `usage-m1-check.json` 専用です。既存ジョブや他の出力名を拒否します。実行用コードをApplication Supportへコピーするため、ソース変更後はコピーの更新も必要です。
-- M1ではPythonのiCloud書込みがmacOSのプライバシー権限で拒否される場合があります。手動取得成功とLaunchAgent成功を区別し、登録しただけで定期取得を完了扱いにしないでください。
+- `tools/install_collector.py` は確認用 `usage-m1-check.json` 専用です。既存ジョブや他の出力名を拒否します。実行用コードとローカルの取得結果をApplication Supportに置きます。ソース変更後は実行用のコピーと保存用アプリの更新も必要です。
+- M1のPythonからiCloudへ直接書く方式は、フルディスクアクセスを追加してもFile Provider側で拒否されました。現在は `tools/CollectorBridge.swift` の小さなMacアプリでフォルダを選び、保存を許可します。Pythonはローカルへ取得し、Macアプリが同じデータをiCloudへ保存します。Fireもローカルの同じデータを読みます。
 - Claudeの取得は専用の空ディレクトリでCLIの組込み `/usage` を使います。CLI画面のカーソル移動を復元し、表示上の明示されたリセット日時だけを変換します。未知の形式は推測しません。
 - 一部の枠が欠けた場合はサービス全体の前回値・取得時刻を保持します。時刻を枠ごとに分ける変更は行っていません。
 - Fire HDの設定は [手順](../fire_hd/README.md)、iPhoneの設定は [Scriptable手順](../scriptable/README.md) を参照してください。
-- Xcode本体はM1で見つからず、変更したMacコードはSwift型検査までです。普段使うMacでのアプリ導入、iPhoneの受信、旧Mac停止と共有ファイルへの切り替えは、実機確認後に調整します。
+- Xcode本体はM1で見つかりません。保存用の小さなMacアプリはCommand Line Toolsのswiftcでビルド済みですが、変更した表示用MacコードはSwift型検査までです。普段使うMacでのアプリ導入、iPhoneの受信、旧Mac停止と共有ファイルへの切り替えは、実機確認後に調整します。
 - 確認用の取得・表示の許可は、共有ファイルへの切り替え承認ではありません。旧Mac停止の証拠を確認してから進めてください。

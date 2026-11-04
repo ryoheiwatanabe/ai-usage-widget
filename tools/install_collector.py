@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install a 15-minute macOS collector. An explicit output path is required."""
+"""Build a native folder-authorized collector and prepare its 15-minute LaunchAgent."""
 import argparse
 import os
 from pathlib import Path
@@ -17,20 +17,15 @@ def main():
     args = parser.parse_args()
     output = args.output.expanduser().resolve()
     if output.name != "usage-m1-check.json":
-        parser.error("切り替え前は確認用ファイル名を指定してください。共有usage.jsonへの切り替えは旧Mac停止後に行います。")
+        parser.error("確認用usage-m1-check.jsonを指定してください。共有usage.jsonは変更しません。")
     codex = shutil.which("codex")
-    if not codex:
-        parser.error("ログイン済みのCodex CLIが必要です。")
-    # Apple's command-line stub can receive a different TCC decision than Python.app.
-    # Launch the app interpreter directly so the user can grant that exact app access.
-    app_python = Path(sys.base_prefix) / "Resources/Python.app/Contents/MacOS/Python"
-    interpreter = str(app_python) if app_python.is_file() else sys.executable
+    if not codex or not shutil.which("swiftc"):
+        parser.error("ログイン済みCodex CLIとSwiftコンパイラが必要です。")
     home = Path.home()
     job = home / "Library/LaunchAgents" / (LABEL + ".plist")
     domain = "gui/" + str(os.getuid())
-    loaded = subprocess.run(["/bin/launchctl", "print", domain + "/" + LABEL],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
-    if job.exists() or loaded:
+    loaded = subprocess.run(["/bin/launchctl", "print", domain + "/" + LABEL], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    if (job.exists() or loaded):
         parser.error("確認用ジョブは既に存在します。既存設定は変更しません。")
     directories = [str(Path(codex).parent)]
     claude = shutil.which("claude")
@@ -39,26 +34,29 @@ def main():
     directories += ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
     runtime = home / "Library/Application Support/AIUsage"
     runtime.mkdir(parents=True, exist_ok=True, mode=0o700)
-    installed_script = runtime / "sync_usage.py"
-    shutil.copyfile(Path(__file__).with_name("sync_usage.py"), installed_script)
-    installed_script.chmod(0o600)
+    (runtime / "collector").mkdir(exist_ok=True, mode=0o700)
+    app = home / "Applications/AI Usage Collector.app"
+    contents = app / "Contents"
+    (contents / "MacOS").mkdir(parents=True, exist_ok=True)
+    executable = contents / "MacOS/AIUsageCollector"
+    source = Path(__file__).with_name("CollectorBridge.swift")
+    subprocess.run(["/usr/bin/swiftc", "-parse-as-library", "-O", str(source), str(source.parent.parent / "Shared/UsageSnapshot.swift"), "-o", str(executable)], check=True)
+    info = {"CFBundleIdentifier": "com.ryo.AIUsageBoard.collector", "CFBundleName": "AI Usage Collector",
+            "CFBundleExecutable": "AIUsageCollector", "CFBundlePackageType": "APPL", "CFBundleVersion": "1",
+            "CollectorSuggestedFolder": str(output.parent), "CollectorPython": sys.executable, "CollectorPath": ":".join(dict.fromkeys(directories))}
+    (contents / "Info.plist").write_bytes(plistlib.dumps(info))
+    subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", str(app)], check=True)
+    shutil.copyfile(Path(__file__).with_name("sync_usage.py"), runtime / "sync_usage.py")
     logs = home / "Library/Logs/AIUsage"
     logs.mkdir(parents=True, exist_ok=True, mode=0o700)
     job.parent.mkdir(parents=True, exist_ok=True)
-    config = {"Label": LABEL, "ProgramArguments": [interpreter, str(installed_script),
-              "--output", str(output)], "EnvironmentVariables": {"PATH": ":".join(dict.fromkeys(directories))},
+    config = {"Label": LABEL, "ProgramArguments": [str(executable), "--sync"],
               "StartInterval": 900, "RunAtLoad": True, "ProcessType": "Background",
               "StandardOutPath": str(logs / "collector.log"), "StandardErrorPath": str(logs / "collector-error.log")}
-    with job.open("xb") as stream:
-        plistlib.dump(config, stream)
-    job.chmod(0o600)
-    try:
-        subprocess.run(["/bin/launchctl", "bootstrap", domain, str(job)], check=True)
-    except subprocess.CalledProcessError:
-        print("登録に失敗しました。設定ファイルを残しました: " + str(job), file=sys.stderr)
-        return 1
-    print("15分ごとの確認用取得を登録しました: " + str(output))
-    print("停止: launchctl bootout " + domain + "/" + LABEL)
+    job.write_bytes(plistlib.dumps(config)); job.chmod(0o600)
+    subprocess.run(["/usr/bin/open", str(app), "--args", "--setup"], check=True)
+    print("開いた画面で、iCloud DriveのAI Usageフォルダを選んでください。")
+    print("ローカル表示用: " + str(runtime / "collector/usage-m1-check.json"))
     return 0
 
 

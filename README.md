@@ -61,7 +61,9 @@ python3 tools/install_collector.py --output \
   "$HOME/Library/Mobile Documents/com~apple~CloudDocs/AI Usage/usage-m1-check.json"
 ```
 
-このinstallerは900秒間隔のLaunchAgentを登録し、実行用スクリプトを `~/Library/Application Support/AIUsage` へコピーします。既存ジョブや共有用ファイルへの出力指定は拒否します。コードを更新した場合は、実行用のコピーも更新してください。macOSがiCloudへの書込みを拒否した場合は、Pythonのプライバシー権限を本人が確認します。AppleのPythonでは起動用ファイルと許可対象のずれを避けるため、Python.app本体から直接起動します。
+このinstallerは、既存のSwiftコンパイラで小さな保存用アプリを作ります。開いた画面でiCloud Driveの「AI Usage」フォルダを選ぶと、取得・保存を確認してから900秒間隔のLaunchAgentを登録します。`--output` の親フォルダは選択画面の初期表示に使い、実際の保存先は本人が選びます。ファイル名は確認用に固定しています。既存ジョブがある場合は変更せず終了します。
+
+Pythonは端末内の `~/Library/Application Support/AIUsage/collector/usage-m1-check.json` へ取得します。保存用アプリが同じJSONを選択済みiCloudフォルダへコピーするため、PythonやFire表示サーバーへiCloudの権限を付ける必要はありません。最初のローカルファイルがない場合は、iCloudにある確認用の前回値を検証して引き継ぎます。
 
 ## iPhoneで表示する
 
@@ -73,16 +75,16 @@ Scriptable方式は [導入手順](docs/scriptable/README.md) を参照してく
 
 ## Fire HDで表示する
 
-M1と同じWi-Fiへ接続し、Silkで残量ページを開きます。[設定・確認手順](docs/fire_hd/README.md) を参照してください。実際の利用データはインターネットへ公開しません。
+M1と同じWi-Fiへ接続し、Silkで残量ページを開きます。[設定・確認手順](docs/fire_hd/README.md) を参照してください。実際の利用データはインターネットへ公開しません。M1の表示サーバー起動、FireからのWi-Fi受信と実値・取得時刻の表示を確認しました。
 
 ## 実装と確認の状況
 
 - Codexは公式CLIの `account/rateLimits/read` を使用し、実際の残量取得を確認済みです。取得される枠はアカウントによって異なります。提供されない枠は「—」と表示します。
 - M1でClaude Codeの正規ログインと `/usage` からの実値取得を確認しました。初回確認は専用の空ディレクトリで行い、ANSIの画面差分を復元して読み取ります。safe-modeを使い、ユーザーのhooks・MCP・ツールを無効にします。
-- Mac・iPhone実機用・iPhoneシミュレータのビルド、Macアプリの実値表示、自動同期の正常終了を確認しています。
+- 引き継ぎ時点でMac・iPhone実機用・シミュレータのビルドを確認済みです。今回のM1では保存用アプリのビルド、LaunchAgentからの実値取得・iCloud保存を確認しました。表示用Macアプリの変更後ビルドは未確認です。
 - Macデスクトップへのウィジェット配置と、iPhone実機でのiCloud同期は未確認です。
 - MacのiCloud受信処理を実装し、Swiftの型検査を確認しました。変更後のアプリのビルド・署名・普段使うMacへの導入は未確認です。
-- iPhoneはScriptable方式を選択済みです。確認用JSONとJSのiCloud経由の到達は本人確認済みです。Scriptableの表示とホーム画面ウィジェットは未確認です。
+- iPhoneはScriptable方式を選択済みです。確認用JSONとJSのiCloud経由の到達、Scriptable内での実値・取得時刻表示は本人確認済みです。ホーム画面ウィジェットの実値・取得時刻表示も本人確認済みです。
 
 続きの開発・常駐Macへの移行は、[引き継ぎメモ](docs/migration_handoff/README.md)を参照してください。
 

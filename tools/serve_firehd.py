@@ -4,6 +4,8 @@ import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
 import json
+import os
+import subprocess
 from pathlib import Path
 
 
@@ -73,7 +75,15 @@ def main():
     page = Path(__file__).resolve().parent.parent / "firehd/index.html"
     server = ThreadingHTTPServer((str(args.bind), args.port), make_handler(args.source.expanduser(), page, allowed, hosts))
     print("Fire HD: http://" + str(args.bind) + ":" + str(args.port), flush=True)
-    server.serve_forever()
+    # Keep Python as the responsible app for iCloud permissions, rather than caffeinate.
+    awake = subprocess.Popen(["/usr/bin/caffeinate", "-i", "-w", str(os.getpid())],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        server.serve_forever()
+    finally:
+        awake.terminate()
+        awake.wait()
+        server.server_close()
 
 
 if __name__ == "__main__":

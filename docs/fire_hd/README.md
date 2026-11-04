@@ -8,19 +8,13 @@ Python 3.9以降を使います。取得処理とは別のLaunchAgentで、表�
 
 ```sh
 python3 tools/install_firehd.py \
-  --source "$HOME/Library/Mobile Documents/com~apple~CloudDocs/AI Usage/usage-m1-check.json" \
+  --source "$HOME/Library/Application Support/AIUsage/collector/usage-m1-check.json" \
   --address M1のLANアドレス --device-ip FireのLANアドレス
 ```
 
 `--address`と`--device-ip`は実際のIPアドレスに置き換えてください。共有ファイルへの移行確認が終わるまでは、確認用ファイルを指定します。既存の設定がある場合、installerは変更せずに終了します。
 
-AppleのPythonを使う場合、LaunchAgentはPython.app本体を直接起動します。フルディスクアクセスを設定する場合も、そのPython.appを対象にしてください。Command Line ToolsのPython 3.9では次の場所です。
-
-```text
-/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app
-```
-
-別の場所のPythonに許可を付けても、定期実行側には適用されないことがあります。権限の変更後は表示サーバーを再起動し、実際にJSONを受信できることを確認します。
+FireはM1内の取得結果を直接読みます。iCloudへ保存するJSONと同じ内容です。Pythonへのフルディスクアクセス追加は不要です。スリープ防止はPythonから起動する子プロセスで行い、取得・表示プロセスの権限判定を変えない構成です。
 
 FireのSilkで、表示された `http://M1のLANアドレス:8765` を開きます。ブックマークに登録すれば、次回も同じページを開けます。スリープ時はFireの電源ボタンで復帰します。画面を常時点灯する設定は自動で変更しません。
 
