@@ -21,6 +21,10 @@ def main():
     codex = shutil.which("codex")
     if not codex:
         parser.error("ログイン済みのCodex CLIが必要です。")
+    # Apple's command-line stub can receive a different TCC decision than Python.app.
+    # Launch the app interpreter directly so the user can grant that exact app access.
+    app_python = Path(sys.base_prefix) / "Resources/Python.app/Contents/MacOS/Python"
+    interpreter = str(app_python) if app_python.is_file() else sys.executable
     home = Path.home()
     job = home / "Library/LaunchAgents" / (LABEL + ".plist")
     domain = "gui/" + str(os.getuid())
@@ -41,7 +45,7 @@ def main():
     logs = home / "Library/Logs/AIUsage"
     logs.mkdir(parents=True, exist_ok=True, mode=0o700)
     job.parent.mkdir(parents=True, exist_ok=True)
-    config = {"Label": LABEL, "ProgramArguments": [sys.executable, str(installed_script),
+    config = {"Label": LABEL, "ProgramArguments": [interpreter, str(installed_script),
               "--output", str(output)], "EnvironmentVariables": {"PATH": ":".join(dict.fromkeys(directories))},
               "StartInterval": 900, "RunAtLoad": True, "ProcessType": "Background",
               "StandardOutPath": str(logs / "collector.log"), "StandardErrorPath": str(logs / "collector-error.log")}

@@ -14,6 +14,14 @@ python3 tools/install_firehd.py \
 
 `--address`と`--device-ip`は実際のIPアドレスに置き換えてください。共有ファイルへの移行確認が終わるまでは、確認用ファイルを指定します。既存の設定がある場合、installerは変更せずに終了します。
 
+AppleのPythonを使う場合、LaunchAgentはPython.app本体を直接起動します。フルディスクアクセスを設定する場合も、そのPython.appを対象にしてください。Command Line ToolsのPython 3.9では次の場所です。
+
+```text
+/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app
+```
+
+別の場所のPythonに許可を付けても、定期実行側には適用されないことがあります。権限の変更後は表示サーバーを再起動し、実際にJSONを受信できることを確認します。
+
 FireのSilkで、表示された `http://M1のLANアドレス:8765` を開きます。ブックマークに登録すれば、次回も同じページを開けます。スリープ時はFireの電源ボタンで復帰します。画面を常時点灯する設定は自動で変更しません。
 
 接続を許可するIPアドレスはFireとlocalhostだけです。指定したHost以外のアクセスも拒否し、任意のファイルやディレクトリを公開しません。HTTP通信には暗号化や本人認証がないため、信頼できる家庭内Wi-Fiで使ってください。IPアドレスの制限は端末を暗号学的に識別するものではありません。インターネットへのポート公開はしないでください。

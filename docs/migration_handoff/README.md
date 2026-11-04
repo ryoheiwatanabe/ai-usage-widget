@@ -17,8 +17,8 @@
 | Macアプリ | 実値表示、iCloudへの保存、15分同期を確認済み |
 | Macウィジェット | WidgetKit拡張の登録を確認済み。デスクトップ配置は未確認 |
 | iPhone専用アプリ | 実機用ビルドとシミュレータ起動を確認済み。実機導入・iCloud同期は未確認 |
-| iPhoneの方式 | Scriptableを選択済み。scriptable/AIUsage.jsを追加。実機での受信は未確認 |
-| Fire HD | Wi-Fi方式を選択済み。配信コードを追加。接続確認は作業中 |
+| iPhoneの方式 | Scriptableを選択済み。確認用JSONとJSのiCloud到達は本人確認済み。Scriptable表示は未確認 |
+| Fire HD | Wi-Fi方式。M1の表示用LaunchAgentを登録し、FireからLAN経由のHTTP到達を確認。iCloud読取り権限とロック解除後の表示は確認中 |
 | M1の定期取得 | 確認用LaunchAgentを900秒で登録。iCloud書込みのmacOS権限は確認中 |
 
 このアカウントで確認したCodexの応答は、primaryの期間が10080分、secondaryがnullでした。primaryを5時間枠だと決めつけず、期間を使って週間枠へ割り当てる実装を維持してください。

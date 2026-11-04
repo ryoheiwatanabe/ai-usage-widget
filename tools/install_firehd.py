@@ -21,6 +21,10 @@ def main():
     for ip in (args.address, args.device_ip):
         if not ip.is_private or ip.is_loopback or ip.is_unspecified:
             parser.error("同じWi-Fi上のLANアドレスを指定してください。")
+    # Apple's command-line stub can receive a different TCC decision than Python.app.
+    # Launch the app interpreter directly so the user can grant that exact app access.
+    app_python = Path(sys.base_prefix) / "Resources/Python.app/Contents/MacOS/Python"
+    interpreter = str(app_python) if app_python.is_file() else sys.executable
     home = Path.home()
     domain = "gui/" + str(os.getuid())
     job = home / "Library/LaunchAgents" / (LABEL + ".plist")
@@ -37,7 +41,7 @@ def main():
     logs = home / "Library/Logs/AIUsage"
     logs.mkdir(parents=True, exist_ok=True, mode=0o700)
     job.parent.mkdir(parents=True, exist_ok=True)
-    config = {"Label": LABEL, "ProgramArguments": ["/usr/bin/caffeinate", "-i", sys.executable, str(runtime / "tools/serve_firehd.py"),
+    config = {"Label": LABEL, "ProgramArguments": ["/usr/bin/caffeinate", "-i", interpreter, str(runtime / "tools/serve_firehd.py"),
               "--source", str(args.source.expanduser().resolve()), "--bind", str(args.address), "--allow", str(args.device_ip)],
               "RunAtLoad": True, "KeepAlive": True, "ThrottleInterval": 30, "ProcessType": "Background",
               "StandardOutPath": str(logs / "firehd.log"), "StandardErrorPath": str(logs / "firehd-error.log")}

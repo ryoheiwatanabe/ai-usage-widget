@@ -61,7 +61,7 @@ python3 tools/install_collector.py --output \
   "$HOME/Library/Mobile Documents/com~apple~CloudDocs/AI Usage/usage-m1-check.json"
 ```
 
-このinstallerは900秒間隔のLaunchAgentを登録し、実行用スクリプトを `~/Library/Application Support/AIUsage` へコピーします。既存ジョブや共有用ファイルへの出力指定は拒否します。コードを更新した場合は、実行用のコピーも更新してください。macOSがiCloudへの書込みを拒否した場合は、Pythonのプライバシー権限を本人が確認します。
+このinstallerは900秒間隔のLaunchAgentを登録し、実行用スクリプトを `~/Library/Application Support/AIUsage` へコピーします。既存ジョブや共有用ファイルへの出力指定は拒否します。コードを更新した場合は、実行用のコピーも更新してください。macOSがiCloudへの書込みを拒否した場合は、Pythonのプライバシー権限を本人が確認します。AppleのPythonでは起動用ファイルと許可対象のずれを避けるため、Python.app本体から直接起動します。
 
 ## iPhoneで表示する
 
@@ -82,7 +82,7 @@ M1と同じWi-Fiへ接続し、Silkで残量ページを開きます。[設定�
 - Mac・iPhone実機用・iPhoneシミュレータのビルド、Macアプリの実値表示、自動同期の正常終了を確認しています。
 - Macデスクトップへのウィジェット配置と、iPhone実機でのiCloud同期は未確認です。
 - MacのiCloud受信処理を実装し、Swiftの型検査を確認しました。変更後のアプリのビルド・署名・普段使うMacへの導入は未確認です。
-- iPhoneはScriptable方式を選択済みです。コードを追加しましたが、iPhone実機の受信は未確認です。
+- iPhoneはScriptable方式を選択済みです。確認用JSONとJSのiCloud経由の到達は本人確認済みです。Scriptableの表示とホーム画面ウィジェットは未確認です。
 
 続きの開発・常駐Macへの移行は、[引き継ぎメモ](docs/migration_handoff/README.md)を参照してください。
 
