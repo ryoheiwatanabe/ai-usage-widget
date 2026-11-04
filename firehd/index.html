@@ -13,12 +13,17 @@ function valid(s){return s&&s.schemaVersion===1&&Number.isFinite(Date.parse(s.ge
 try{var saved=JSON.parse(localStorage.getItem(cache));if(valid(saved))last=saved}catch(e){}
 function text(parent,tag,value,cls){var el=document.createElement(tag);el.textContent=value;if(cls)el.className=cls;parent.appendChild(el);return el}
 function time(v){return v?new Date(v).toLocaleString('ja-JP'):'未取得'}
+function countdown(ms){
+ var minutes=Math.floor(ms/60000),hours=Math.floor(minutes/60);
+ var value=hours>=24?Math.floor(hours/24)+'日'+hours%24+'時間':hours>0?hours+'時間'+minutes%60+'分':minutes>0?minutes+'分':'1分未満';
+ return '（あと'+value+'）';
+}
 function render(){
  document.getElementById('clock').textContent=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
  var root=document.getElementById('providers');root.textContent='';
  ['codex','claude'].forEach(function(id){var p=last&&last.providers.find(function(v){return v.id===id})||{windows:[]};var card=text(root,'article','');text(card,'h2',id==='codex'?'Codex':'Claude');
  var stale=failed||p.status==='stale'||!p.measuredAt||Date.now()-Date.parse(p.measuredAt)>1800000;
- ['session','weekly'].forEach(function(key){var w=p.windows.find(function(v){return v.id===key});var expired=w&&w.resetsAt&&Date.parse(w.resetsAt)<=Date.now();var row=text(card,'div','','row');var heading=text(row,'div','','label');text(heading,'span',key==='session'?'5時間':'週間');text(heading,'span',!w||expired?'—':Math.round(w.remainingPercent)+'%','value');if(w&&!expired){var bar=document.createElement('progress');bar.max=100;bar.value=w.remainingPercent;row.appendChild(bar)}text(row,'small',!w||expired?'更新待ち':w.resetsAt?'リセット '+time(w.resetsAt):w.resetLabel||'リセット時刻は未取得')});
+ ['session','weekly'].forEach(function(key){var w=p.windows.find(function(v){return v.id===key});var reset=w?Date.parse(w.resetsAt):NaN;var remaining=reset-Date.now();var expired=Number.isFinite(reset)&&remaining<=0;var row=text(card,'div','','row');var heading=text(row,'div','','label');text(heading,'span',key==='session'?'5時間':'週間');text(heading,'span',!w||expired?'—':Math.round(w.remainingPercent)+'%','value');if(w&&!expired){var bar=document.createElement('progress');bar.max=100;bar.value=w.remainingPercent;row.appendChild(bar)}text(row,'small',!w||expired?'更新待ち':Number.isFinite(reset)?'リセット '+time(w.resetsAt)+countdown(remaining):w.resetLabel||'リセット時刻は未取得')});
  if(id==='codex')text(card,'div','クレジット '+(p.credits==null?'—':p.credits));text(card,'p',stale?'更新待ち（前回値を表示）':'取得済み',stale?'warning':'muted');text(card,'small','取得 '+time(p.measuredAt));
  });
  document.getElementById('status').textContent=failed?'M1に接続できません。前回の取得時刻と値を表示しています。':'M1の取得データを1分ごとに確認します。残量の取得は15分ごとです。';

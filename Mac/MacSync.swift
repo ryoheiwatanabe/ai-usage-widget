@@ -191,7 +191,7 @@ struct MacBoardScreen: View {
         }
         .padding(26).frame(width: 430)
         .background(Color(red: 0.055, green: 0.065, blue: 0.065))
-        .task { if receiving || hasDestination { refresh() } }
+        .task { if receiving { refresh() } }
     }
 
     private func chooseSource() {

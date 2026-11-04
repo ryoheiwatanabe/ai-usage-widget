@@ -41,7 +41,8 @@ struct CollectorBridge {
                 alert.informativeText = allConnected ? "15分ごとに更新します。旧Macの同期と共有usage.jsonは変更していません。" : "一部の取得に失敗したため前回値を保持しました。15分ごとに再試行します。"
                 alert.runModal()
             } else {
-                if try !synchronize() { exit(1) }
+                let production = CommandLine.arguments.contains("--sync") && CommandLine.arguments.contains("--production")
+                if try !synchronize(production: production) { exit(1) }
             }
         } catch {
             fputs("\(error.localizedDescription)\n", stderr)
@@ -64,14 +65,14 @@ struct CollectorBridge {
         catch { return -1 }
     }
 
-    static func synchronize() throws -> Bool {
+    static func synchronize(production: Bool = false) throws -> Bool {
         guard let bookmark = defaults.data(forKey: folderKey) else { throw BridgeError.message("アプリを開き、保存するiCloudフォルダを選んでください。") }
         var stale = false
         let folder = try URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope, .withoutUI], relativeTo: nil, bookmarkDataIsStale: &stale)
         let access = folder.startAccessingSecurityScopedResource()
         defer { if access { folder.stopAccessingSecurityScopedResource() } }
         let python = Bundle.main.object(forInfoDictionaryKey: "CollectorPython") as! String
-        let output = folder.appendingPathComponent("usage-m1-check.json")
+        let output = folder.appendingPathComponent(production ? "usage.json" : "usage-m1-check.json")
         if !FileManager.default.fileExists(atPath: snapshot.path), FileManager.default.fileExists(atPath: output.path) {
             var readError: Error?
             var coordinationError: NSError?
@@ -97,24 +98,35 @@ struct CollectorBridge {
         try process.run()
         process.waitUntilExit()
         let data = try Data(contentsOf: snapshot)
-        guard data.count <= 131_072,
-              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              json["schemaVersion"] as? Int == 1,
-              let generated = json["generatedAt"] as? String,
-              let date = ISO8601DateFormatter().date(from: generated),
-              date >= started.addingTimeInterval(-2), date <= Date().addingTimeInterval(300) else {
+        let current = try UsageSnapshot.decode(data)
+        guard current.generatedAt >= started.addingTimeInterval(-2) else {
             throw BridgeError.message("新しい取得結果を確認できませんでした。前回のファイルを維持します。")
         }
         var coordinationError: NSError?
         var writeError: Error?
         NSFileCoordinator().coordinate(writingItemAt: output, options: .forReplacing, error: &coordinationError) { url in
-            do { try data.write(to: url, options: .atomic) } catch { writeError = error }
+            do {
+                if production, FileManager.default.fileExists(atPath: url.path) {
+                    let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                    guard size <= 131_072 else { throw UsageError.invalidFile }
+                    let previous = try UsageSnapshot.decode(Data(contentsOf: url))
+                    guard previous.generatedAt <= current.generatedAt,
+                          previous.providers.allSatisfy({ provider in
+                              guard let last = provider.measuredAt else { return true }
+                              let next = current.providers.first { $0.id == provider.id }?.measuredAt
+                              return next.map { $0 >= last } ?? false
+                          }) else {
+                        throw BridgeError.message("共有ファイルにより新しい取得結果があります。上書きせず停止しました。")
+                    }
+                }
+                try data.write(to: url, options: .atomic)
+            } catch { writeError = error }
         }
         if let error = coordinationError ?? writeError { throw error }
         if stale {
             defaults.set(try folder.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil), forKey: folderKey)
         }
-        print("確認用iCloud保存完了: \(generated)")
+        print("iCloud保存完了 (\(output.lastPathComponent)): \(ISO8601DateFormatter().string(from: current.generatedAt))")
         return process.terminationStatus == 0
     }
 }

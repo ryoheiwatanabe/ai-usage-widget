@@ -126,23 +126,31 @@ private struct QuotaCell: View {
                     }
             }
             .frame(height: 3)
-            Text(resetText).font(.system(size: 8)).foregroundStyle(BoardStyle.muted)
-                .lineLimit(1).minimumScaleFactor(0.65)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(resetText).lineLimit(1).minimumScaleFactor(0.65)
+                if let countdown { Text(countdown).lineLimit(1).minimumScaleFactor(0.65) }
+            }
+            .font(.system(size: 8)).foregroundStyle(BoardStyle.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label)、残り\(remaining.map { "\(Int($0))パーセント" } ?? "未取得")、\(resetText)")
+        .accessibilityLabel("\(label)、残り\(remaining.map { "\(Int($0))パーセント" } ?? "未取得")、\(resetText)\(countdown ?? "")")
     }
 
     private var resetText: String {
         guard let window else { return "未取得" }
         guard let reset = window.resetsAt else { return window.resetLabel ?? "" }
-        let minutes = Int(ceil(reset.timeIntervalSince(date) / 60))
-        guard minutes > 0 else { return "更新待ち" }
+        guard reset > date else { return "更新待ち" }
+        return "↻ " + reset.formatted(.dateTime.month(.defaultDigits).day().hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(Locale(identifier: "ja_JP")))
+    }
+
+    private var countdown: String? {
+        guard let reset = window?.resetsAt, reset > date else { return nil }
+        let minutes = Int(reset.timeIntervalSince(date) / 60)
         let hours = minutes / 60
-        if hours >= 24 { return "↻ \(hours / 24)日\(hours % 24)時間" }
-        if hours > 0 { return "↻ \(hours)時間\(minutes % 60)分" }
-        return "↻ \(minutes)分"
+        if hours >= 24 { return "（あと\(hours / 24)日\(hours % 24)時間）" }
+        if hours > 0 { return "（あと\(hours)時間\(minutes % 60)分）" }
+        return minutes > 0 ? "（あと\(minutes)分）" : "（あと1分未満）"
     }
 }
 
