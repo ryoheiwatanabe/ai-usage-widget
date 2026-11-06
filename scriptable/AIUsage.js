@@ -1,7 +1,7 @@
-// 本番切り替え時は「AI Usage Live」で usage.json を指定してください。
+// 「AI Usage Folder」でiCloudのAI Usageフォルダを指定してください。
 const fm = FileManager.local(), cloud = FileManager.iCloud();
 const cache = fm.joinPath(fm.cacheDirectory(), 'ai-usage-last-snapshot.json');
-let snapshot = null, failed = false;
+let snapshot = null, failed = false, failureMessage = '';
 function valid(s) {
   return s && s.schemaVersion === 1 && Number.isFinite(Date.parse(s.generatedAt)) &&
     Date.parse(s.generatedAt) <= Date.now() + 300000 && Array.isArray(s.providers) &&
@@ -11,17 +11,27 @@ function valid(s) {
 }
 try { const old = JSON.parse(fm.readString(cache)); if (valid(old)) snapshot = old; } catch (_) {}
 try {
-  const bookmark = cloud.bookmarkExists('AI Usage Live') ? 'AI Usage Live' : 'AI Usage';
-  if (!cloud.bookmarkExists(bookmark)) throw Error('ファイルブックマークが未設定です。');
-  const path = cloud.bookmarkedPath(bookmark);
+  let path;
+  if (cloud.bookmarkExists('AI Usage Folder')) {
+    const folder = cloud.bookmarkedPath('AI Usage Folder');
+    if (!cloud.isDirectory(folder)) throw Error('AI Usage FolderにはJSONファイルではなく、AI Usageフォルダを登録してください。');
+    path = cloud.joinPath(folder, 'usage.json');
+  } else {
+    if (!cloud.bookmarkExists('AI Usage Live')) throw Error('設定のFile Bookmarksで、iCloud DriveのAI Usageフォルダを「AI Usage Folder」として登録してください。');
+    path = cloud.bookmarkedPath('AI Usage Live');
+    if (path.split('/').pop() !== 'usage.json') throw Error('AI Usage Liveが確認用ファイルを参照しています。AI Usageフォルダを「AI Usage Folder」として登録してください。');
+  }
   await cloud.downloadFileFromiCloud(path);
   if (cloud.fileSize(path) > 128) throw Error('ファイルが大きすぎます。');
   const current = JSON.parse(cloud.readString(path));
   if (!valid(current)) throw Error('形式が不正です。');
-  if (!snapshot || Date.parse(current.generatedAt) >= Date.parse(snapshot.generatedAt)) {
-    snapshot = current; fm.writeString(cache, JSON.stringify(snapshot));
-  }
-} catch (_) { failed = true; }
+  if (snapshot && Date.parse(current.generatedAt) < Date.parse(snapshot.generatedAt))
+    throw Error('iCloudの本番データが端末内の前回値より古いため、前回値を保持しています。');
+  snapshot = current; fm.writeString(cache, JSON.stringify(snapshot));
+} catch (error) {
+  failed = true;
+  failureMessage = String(error.message || error).slice(0, 512);
+}
 const widget = new ListWidget();
 widget.backgroundColor = new Color('101a17'); widget.setPadding(14,16,12,16);
 function label(stack, value, size, color) {
@@ -40,7 +50,7 @@ function resetLine(w, now) {
   return (d.getMonth()+1)+'/'+d.getDate()+' '+hhmm+'（あと'+value+'）';
 }
 const now = Date.now();
-label(widget, 'AI USAGE', 10, '8adfba'); widget.addSpacer(4);
+label(widget, failed ? 'AI USAGE · 本番未接続' : 'AI USAGE · 本番', 10, failed ? 'ffcc88' : '8adfba'); widget.addSpacer(4);
 const columns = widget.addStack();
 for (const [index,id] of ['codex','claude'].entries()) {
   if (index) columns.addSpacer(18);
@@ -64,5 +74,14 @@ for (const [index,id] of ['codex','claude'].entries()) {
 }
 widget.refreshAfterDate = new Date(Date.now()+900000);
 Script.setWidget(widget);
-if (config.runsInApp) await widget.presentMedium();
+if (config.runsInApp) {
+  if (failed) {
+    const alert = new Alert();
+    alert.title = '本番データを更新できません';
+    alert.message = failureMessage + '\n前回の値と取得時刻を表示しています。';
+    alert.addAction('確認');
+    await alert.presentAlert();
+  }
+  await widget.presentMedium();
+}
 Script.complete();
